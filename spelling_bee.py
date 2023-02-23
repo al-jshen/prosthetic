@@ -11,8 +11,8 @@ from tqdm.auto import tqdm
 def parse_l2(hints):
     l2 = dict()
     for h in hints:
-        hh = h.split(",")
-        l2[hh[0]] = int(hh[1])
+        hh = h.split("-")
+        l2[hh[0].lower()] = int(hh[1])
     return l2
 
 
@@ -20,7 +20,7 @@ def parse_counts(counts):
     cts = dict()
     for c in counts:
         cc = c.split(",")
-        letter = cc[0]
+        letter = cc[0].lower()
         length = int(cc[1])
         count = int(cc[2])
         if letter not in cts.keys():
@@ -37,7 +37,12 @@ def startswith_l2(x):
 
 
 def wordfilter(x):
-    return args.center_letter in x and len(x) >= 4 and len(x) <= 9 and startswith_l2(x)
+    return (
+        args.center_letter in x
+        and len(x) >= 4
+        and len(x) <= args.maxlen
+        and startswith_l2(x)
+    )
 
 
 def generate_combinations(l2_counts, counts):
@@ -96,10 +101,12 @@ def login(driver):
 def main():
     found = set()
     wordlist = set()
-    for wordlist_file in args.wordlist:
-        with open(wordlist_file, "r", errors="ignore") as f:
-            wl = f.read().splitlines()
-            wordlist.update(set(filter(wordfilter, wl)))
+
+    if args.wordlist is not None:
+        for wordlist_file in args.wordlist:
+            with open(wordlist_file, "r", errors="ignore") as f:
+                wl = f.read().splitlines()
+                wordlist.update(set(filter(wordfilter, wl)))
 
     combinations = generate_combinations(l2_counts, counts)
     matches = combinations.intersection(wordlist)
@@ -143,17 +150,21 @@ def main():
 
         found.update(get_found(driver))
 
+        print(f"Found {len(found)} words in wordlist.")
+
         for word in found:
             update_counts(word, l2_counts, counts)
 
         combinations = generate_combinations(l2_counts, counts)
 
+        print(f"Checking {len(combinations)} combinations.")
+
         for word in tqdm(combinations):
             body.send_keys(word)
             body.send_keys(Keys.RETURN)
-            time.sleep(0.00001)
+            time.sleep(0.000001)
 
-        _ = input("Press enter to continue")
+        _ = input("Finished. Press enter to end.")
 
         driver.close()
 
@@ -192,6 +203,7 @@ if __name__ == "__main__":
     parser.add_argument("--wordlist", type=str, nargs="+")
     parser.add_argument("--email", type=str)
     parser.add_argument("--solutions", type=str)
+    parser.add_argument("--maxlen", type=int, default=9)
     args = parser.parse_args()
     letters = args.letters + args.center_letter
     if args.solutions is None:
