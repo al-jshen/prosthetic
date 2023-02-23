@@ -6,6 +6,7 @@ import getpass
 import time
 import argparse
 from tqdm.auto import tqdm
+from functools import partial
 
 
 def parse_l2(hints):
@@ -29,20 +30,12 @@ def parse_counts(counts):
     return cts
 
 
-def startswith_l2(x):
-    for s in l2_counts.keys():
+def wordfilter(x, starters):
+    startswith = False
+    for s in starters:
         if x.startswith(s):
-            return True
-    return False
-
-
-def wordfilter(x):
-    return (
-        args.center_letter in x
-        and len(x) >= 4
-        and len(x) <= maxlen
-        and startswith_l2(x)
-    )
+            startswith = True
+    return args.center_letter in x and len(x) >= 4 and len(x) <= maxlen and startswith
 
 
 def generate_combinations(l2_counts, counts):
@@ -58,6 +51,16 @@ def generate_combinations(l2_counts, counts):
             words = filter(lambda x: args.center_letter in x, map(lambda x: l2 + x, w))
             all_words.update(set(words))
 
+    return all_words
+
+
+def generate_combinations_hintless():
+    all_words = set()
+    for l1 in tqdm(letters, desc="Generating combinations"):
+        for l in range(4, maxlen + 1):
+            w = map(lambda x: "".join(x), product(letters, repeat=l - 1))
+            words = filter(lambda x: args.center_letter in x, map(lambda x: l1 + x, w))
+            all_words.update(set(words))
     return all_words
 
 
@@ -103,12 +106,26 @@ def main():
     wordlist = set()
 
     if args.wordlist is not None:
-        for wordlist_file in args.wordlist:
+        for wordlist_file in tqdm(args.wordlist, desc="Loading wordlist"):
             with open(wordlist_file, "r", errors="ignore") as f:
                 wl = f.read().splitlines()
-                wordlist.update(set(filter(wordfilter, wl)))
+                wordlist.update(
+                    set(
+                        filter(
+                            partial(
+                                wordfilter,
+                                starters=letters if hintless else l2_counts.keys(),
+                            ),
+                            wl,
+                        )
+                    )
+                )
 
-    combinations = generate_combinations(l2_counts, counts)
+    if not hintless:
+        combinations = generate_combinations(l2_counts, counts)
+    else:
+        combinations = generate_combinations_hintless()
+
     matches = combinations.intersection(wordlist)
 
     print(f"Wordlist size: {len(wordlist)}")
@@ -126,8 +143,8 @@ def main():
 
         login(driver)
         _ = input("Solve CAPTCHA, then press enter")
-        login(driver)
-        time.sleep(2)
+        # login(driver)
+        # time.sleep(2)
 
         elem = driver.find_element(
             By.XPATH, "//button[@class='pz-moment__button primary']"
@@ -200,18 +217,30 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--letters", type=str)
     parser.add_argument("--center_letter", type=str)
-    parser.add_argument("--startswith", type=str, nargs="+")
-    parser.add_argument("--counts", type=str, nargs="+")
+    parser.add_argument("--startswith", type=str, nargs="*")
+    parser.add_argument("--counts", type=str, nargs="*")
     parser.add_argument("--wordlist", type=str, nargs="+")
-    parser.add_argument("--email", type=str)
+    parser.add_argument("--email", type=str, nargs="?")
     parser.add_argument("--solutions", type=str)
+    parser.add_argument("--maxlen", type=int, nargs="?")
     args = parser.parse_args()
     letters = args.letters + args.center_letter
-    if args.solutions is None:
+    if args.solutions is None and args.email is not None:
         password = getpass.getpass()
-    l2_counts = parse_l2(args.startswith)
-    counts = parse_counts(args.counts)
-    maxlen = 0
-    for v in counts.values():
-        maxlen = max(maxlen, max(v.keys()))
+    if args.startswith is None or args.counts is None:
+        assert (
+            args.startswith is None and args.counts is None
+        ), "Must specify either both or none of --startswith and --counts"
+        assert args.maxlen is not None, "Must specify --maxlen if running hintless"
+        hintless = True
+    else:
+        hintless = False
+    if not hintless:
+        l2_counts = parse_l2(args.startswith)
+        counts = parse_counts(args.counts)
+        maxlen = 0
+        for v in counts.values():
+            maxlen = max(maxlen, max(v.keys()))
+    else:
+        maxlen = args.maxlen
     main()
