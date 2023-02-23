@@ -4,9 +4,7 @@ from selenium.webdriver.common.by import By
 from itertools import product
 import getpass
 import time
-import json
 import argparse
-import random
 from tqdm.auto import tqdm
 
 
@@ -161,14 +159,13 @@ def main():
 
     else:
         with open(args.solutions, "r") as f:
-            solutions = set(i.lower() for i in f.read().splitlines())
+            solutions = set([i.lower() for i in f.read().splitlines()])
 
         print(f"Solutions size: {len(solutions)}")
 
         for word in matches:
             if word in solutions:
                 found.add(word)
-            time.sleep(0.0001)
 
         for word in found:
             update_counts(word, l2_counts, counts)
@@ -182,7 +179,6 @@ def main():
         for word in tqdm(combinations):
             if word in solutions:
                 found.add(word)
-            time.sleep(0.0001)
 
         print(f"Found {len(found)}/{len(solutions)} solutions.")
 
