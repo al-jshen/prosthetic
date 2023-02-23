@@ -132,60 +132,7 @@ def main():
     print(f"Total combinations: {len(combinations)}")
     print(f"Found in wordlist: {len(matches)}")
 
-    if args.solutions is None:
-        driver = webdriver.Chrome()
-        driver.get("https://www.nytimes.com/puzzles/spelling-bee")
-        time.sleep(1)
-
-        elem = driver.find_element(By.XPATH, "/html/body/header/div[1]/div[2]/a[2]")
-        elem.click()
-        time.sleep(0.5)
-
-        login(driver)
-        _ = input("Solve CAPTCHA, then press enter")
-        # login(driver)
-        # time.sleep(2)
-
-        elem = driver.find_element(
-            By.XPATH, "//button[@class='pz-moment__button primary']"
-        )
-        elem.click()
-
-        try:
-            driver.find_element(By.CLASS_NAME, "pz-moment__close").click()
-        except:
-            pass
-
-        _ = input("Press enter to begin cracking")
-
-        body = driver.find_element(By.TAG_NAME, "body")
-
-        for word in matches:
-            body.send_keys(word)
-            body.send_keys(Keys.RETURN)
-            time.sleep(0.0001)
-
-        found.update(get_found(driver))
-
-        print(f"Found {len(found)} words in wordlist.")
-
-        if not hintless:
-            for word in found:
-                update_counts(word, l2_counts, counts)
-            combinations = generate_combinations(l2_counts, counts)
-
-        print(f"Checking {len(combinations)} combinations.")
-
-        for word in tqdm(combinations):
-            body.send_keys(word)
-            body.send_keys(Keys.RETURN)
-            time.sleep(0.000001)
-
-        _ = input("Finished. Press enter to end.")
-
-        driver.close()
-
-    else:
+    if args.mode == "file":
         with open(args.solutions, "r") as f:
             solutions = set([i.lower() for i in f.read().splitlines()])
 
@@ -212,6 +159,77 @@ def main():
 
         print(f"Found {len(found)}/{len(solutions)} solutions.")
 
+    else:
+        if args.mode == "nyt":
+            driver = webdriver.Chrome()
+            driver.get("https://www.nytimes.com/puzzles/spelling-bee")
+            time.sleep(1)
+
+            elem = driver.find_element(By.XPATH, "/html/body/header/div[1]/div[2]/a[2]")
+            elem.click()
+            time.sleep(0.5)
+
+            login(driver)
+            _ = input("Solve CAPTCHA, then press enter")
+
+            elem = driver.find_element(
+                By.XPATH, "//button[@class='pz-moment__button primary']"
+            )
+            elem.click()
+
+            try:
+                driver.find_element(By.CLASS_NAME, "pz-moment__close").click()
+            except:
+                pass
+
+            _ = input("Press enter to begin cracking")
+
+            body = driver.find_element(By.TAG_NAME, "body")
+
+        elif args.mode == "freebee":
+            driver = webdriver.Chrome()
+            driver.get("https://freebee.fun/play/")
+
+            _ = input("Press enter to begin cracking")
+
+            body = driver.find_element(By.XPATH, "/html/body/div[4]/form/input[1]")
+
+        assert driver is not None
+        assert body is not None
+
+        for word in matches:
+            try:
+                body.send_keys(word)
+                body.send_keys(Keys.RETURN)
+                time.sleep(0.0001)
+            except:
+                _ = input("Press enter to continue")
+
+        found.update(get_found(driver))
+
+        print(f"Found {len(found)} words in wordlist.")
+
+        if not hintless:
+            for word in found:
+                update_counts(word, l2_counts, counts)
+            combinations = generate_combinations(l2_counts, counts)
+
+        print(f"Checking {len(combinations)} combinations.")
+
+        for word in tqdm(combinations):
+            try:
+                body.send_keys(word)
+                body.send_keys(Keys.RETURN)
+                time.sleep(0.000001)
+            except:
+                a = input("Press enter to continue and q to quit")
+                if a == "q":
+                    break
+
+        _ = input("Finished. Press enter to end.")
+
+        driver.close()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -223,6 +241,7 @@ if __name__ == "__main__":
     parser.add_argument("--email", type=str, nargs="?")
     parser.add_argument("--solutions", type=str)
     parser.add_argument("--maxlen", type=int, nargs="?")
+    parser.add_argument("--mode", type=str, choices=["nyt", "freebee", "file"])
     args = parser.parse_args()
     letters = args.letters + args.center_letter
     if args.solutions is None and args.email is not None:
@@ -243,4 +262,8 @@ if __name__ == "__main__":
             maxlen = max(maxlen, max(v.keys()))
     else:
         maxlen = args.maxlen
+    if args.mode == "file":
+        assert (
+            args.solution is not None
+        ), "Must specify --solutions if running in file mode"
     main()
