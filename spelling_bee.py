@@ -169,10 +169,10 @@ def main():
 
         print(f"Found {len(found)} words in wordlist.")
 
-        for word in found:
-            update_counts(word, l2_counts, counts)
-
-        combinations = generate_combinations(l2_counts, counts)
+        if not hintless:
+            for word in found:
+                update_counts(word, l2_counts, counts)
+            combinations = generate_combinations(l2_counts, counts)
 
         print(f"Checking {len(combinations)} combinations.")
 
@@ -194,21 +194,21 @@ def main():
         for word in matches:
             if word in solutions:
                 found.add(word)
-            time.sleep(0.000001)
-
-        for word in found:
-            update_counts(word, l2_counts, counts)
 
         print(f"Found {len(found)} words in wordlist.")
 
-        combinations = generate_combinations(l2_counts, counts)
+        if not hintless:
+            for word in found:
+                update_counts(word, l2_counts, counts)
+            combinations = generate_combinations(l2_counts, counts)
 
         print(f"Checking {len(combinations)} combinations.")
 
         for word in tqdm(combinations):
             if word in solutions:
                 found.add(word)
-            time.sleep(0.000001)
+            if len(found) == len(solutions):
+                break
 
         print(f"Found {len(found)}/{len(solutions)} solutions.")
 
