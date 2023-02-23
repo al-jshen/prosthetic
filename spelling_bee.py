@@ -40,7 +40,7 @@ def wordfilter(x):
     return (
         args.center_letter in x
         and len(x) >= 4
-        and len(x) <= args.maxlen
+        and len(x) <= maxlen
         and startswith_l2(x)
     )
 
@@ -177,6 +177,7 @@ def main():
         for word in matches:
             if word in solutions:
                 found.add(word)
+            time.sleep(0.000001)
 
         for word in found:
             update_counts(word, l2_counts, counts)
@@ -190,6 +191,7 @@ def main():
         for word in tqdm(combinations):
             if word in solutions:
                 found.add(word)
+            time.sleep(0.000001)
 
         print(f"Found {len(found)}/{len(solutions)} solutions.")
 
@@ -203,11 +205,13 @@ if __name__ == "__main__":
     parser.add_argument("--wordlist", type=str, nargs="+")
     parser.add_argument("--email", type=str)
     parser.add_argument("--solutions", type=str)
-    parser.add_argument("--maxlen", type=int, default=9)
     args = parser.parse_args()
     letters = args.letters + args.center_letter
     if args.solutions is None:
         password = getpass.getpass()
     l2_counts = parse_l2(args.startswith)
     counts = parse_counts(args.counts)
+    maxlen = 0
+    for v in counts.values():
+        maxlen = max(maxlen, max(v.keys()))
     main()
