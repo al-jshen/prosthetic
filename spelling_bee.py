@@ -205,28 +205,34 @@ def main():
             except:
                 _ = input("Press enter to continue")
 
-        found.update(get_found(driver))
-
-        print(f"Found {len(found)} words in wordlist.")
+        if args.mode == "nyt":
+            try:
+                found.update(get_found(driver))
+                print(f"Found {len(found)} words in wordlist.")
+            except:
+                pass
 
         if not hintless:
             for word in found:
                 update_counts(word, l2_counts, counts)
             combinations = generate_combinations(l2_counts, counts)
 
-        print(f"Checking {len(combinations)} combinations.")
+        a = input("Press c to continue and anything else to quit")
 
-        for word in tqdm(combinations):
-            try:
-                body.send_keys(word)
-                body.send_keys(Keys.RETURN)
-                time.sleep(0.000001)
-            except:
-                a = input("Press enter to continue and q to quit")
-                if a == "q":
-                    break
+        if a == "c":
+            print(f"Checking {len(combinations)} combinations.")
 
-        _ = input("Finished. Press enter to end.")
+            for word in tqdm(combinations):
+                try:
+                    body.send_keys(word)
+                    body.send_keys(Keys.RETURN)
+                    time.sleep(0.000001)
+                except:
+                    a = input("Press enter to continue and q to quit")
+                    if a == "q":
+                        break
+
+            _ = input("Finished. Press enter to end.")
 
         driver.close()
 
