@@ -1,12 +1,17 @@
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
-from itertools import product
+from selenium.webdriver.common.action_chains import ActionChains
+from itertools import product, chain
 import getpass
 import time
 import argparse
 from tqdm.auto import tqdm
 from functools import partial
+from joblib import Parallel, delayed
+import os
+import pickle
+import time
 
 
 def parse_l2(hints):
@@ -31,11 +36,13 @@ def parse_counts(counts):
 
 
 def wordfilter(x, starters):
-    startswith = False
-    for s in starters:
-        if x.startswith(s):
-            startswith = True
-    return args.center_letter in x and len(x) >= 4 and len(x) <= maxlen and startswith
+    return (
+        args.center_letter in x
+        and len(x) >= 4
+        and len(x) <= maxlen
+        and set(x).issubset(letters)
+        and (x[0] in starters if hintless else x[:2] in starters)
+    )
 
 
 def generate_combinations(l2_counts, counts):
@@ -46,36 +53,76 @@ def generate_combinations(l2_counts, counts):
         l1 = l2[0]
         for l in counts[l1].keys():
             # generate the back of the word
-            w = map(lambda x: "".join(x), product(letters, repeat=int(l) - 2))
+            w = map(lambda x: l2 + "".join(x), product(letters, repeat=int(l) - 2))
             # join with prefix and keep only words that contain the center letter
-            words = filter(lambda x: args.center_letter in x, map(lambda x: l2 + x, w))
+            words = filter(lambda x: args.center_letter in x, w)
             all_words.update(set(words))
 
     return all_words
 
 
 def generate_combinations_hintless():
-    all_words = set()
-    for l1 in tqdm(letters, desc="Generating combinations"):
+    if args.cache_dir is not None:
+        if os.path.isfile(f"{args.cache_dir}/hintless_{maxlen}.pkl"):
+            print("Found cached combinations, loading...")
+            with open(f"{args.cache_dir}/hintless_{maxlen}.pkl", "rb") as f:
+                return pickle.load(f)
+
+    def make_combs(l1, maxlen, letters, center_letter):
+        wds = []
+
         for l in range(4, maxlen + 1):
-            w = map(lambda x: "".join(x), product(letters, repeat=l - 1))
-            words = filter(lambda x: args.center_letter in x, map(lambda x: l1 + x, w))
-            all_words.update(set(words))
-    return all_words
+            w = map(lambda x: l1 + "".join(x), product(letters, repeat=l - 1))
+            words = filter(lambda x: center_letter in x, w)
+            wds.extend(list(words))
+        return wds
+
+    all_words = Parallel(n_jobs=-1)(
+        delayed(make_combs)(l1, maxlen, letters, args.center_letter) for l1 in letters
+    )
+
+    result = set(chain.from_iterable(all_words))
+
+    if args.cache_dir is not None:
+        if not os.path.isdir(args.cache_dir):
+            os.makedirs(args.cache_dir)
+        if not os.path.exists(f"{args.cache_dir}/hintless_{maxlen}.pkl"):
+            print("Caching combinations...")
+            with open(f"{args.cache_dir}/hintless_{maxlen}.pkl", "wb") as f:
+                pickle.dump(result, f)
+
+    return result
 
 
 def update_counts(word, l2_counts, counts):
     l2 = word[:2]
-    l2_counts[l2] -= 1
-    if l2_counts[l2] == 0:
-        del l2_counts[l2]
+    if l2 in l2_counts.keys():
+        l2_counts[l2] -= 1
+        if l2_counts[l2] == 0:
+            del l2_counts[l2]
     l1 = word[0]
     l = len(word)
-    counts[l1][l] -= 1
-    if counts[l1][l] == 0:
-        del counts[l1][l]
-    if len(counts[l1]) == 0:
-        del counts[l1]
+    if l1 in counts.keys():
+        if l in counts[l1].keys():
+            counts[l1][l] -= 1
+            if counts[l1][l] == 0:
+                del counts[l1][l]
+        if len(counts[l1]) == 0:
+            del counts[l1]
+
+
+def wordlist_filter_hinted(words, l2_counts, counts):
+    # words are already
+    #   - between 4 and maxlen letters long
+    #   - have center letter
+    #   - start with an l2
+    def criterion(word):
+        l2 = word[:2]
+        l1 = word[0]
+        l = len(word)
+        return l2 in l2_counts.keys() and l1 in counts.keys() and l in counts[l1].keys()
+
+    return set(filter(criterion, words))
 
 
 def get_found(driver):
@@ -114,25 +161,35 @@ def main():
                         filter(
                             partial(
                                 wordfilter,
-                                starters=letters if hintless else l2_counts.keys(),
+                                starters=letters
+                                if hintless
+                                else list(l2_counts.keys()),
                             ),
                             wl,
                         )
                     )
                 )
 
+    print("Generating combinations...")
     if not hintless:
-        combinations = generate_combinations(l2_counts, counts)
+        if args.wordlist is not None:
+            combinations = wordlist_filter_hinted(wordlist, l2_counts, counts)
+        else:
+            combinations = generate_combinations(l2_counts, counts)
     else:
         combinations = generate_combinations_hintless()
 
+    print("Finding matches in wordlist...")
     matches = combinations.intersection(wordlist)
 
     print(f"Wordlist size: {len(wordlist)}")
     print(f"Total combinations: {len(combinations)}")
     print(f"Found in wordlist: {len(matches)}")
 
-    if args.mode == "file":
+    if args.mode == "none":
+        return
+
+    elif args.mode == "file":
         with open(args.solutions, "r") as f:
             solutions = set([i.lower() for i in f.read().splitlines()])
 
@@ -186,6 +243,16 @@ def main():
 
             body = driver.find_element(By.TAG_NAME, "body")
 
+            try:
+                found.update(get_found(driver))
+                print(f"Already found {len(found)} words...")
+
+                if not hintless:
+                    for word in found:
+                        update_counts(word, l2_counts, counts)
+            except:
+                pass
+
         elif args.mode == "freebee":
             driver = webdriver.Chrome()
             driver.get("https://freebee.fun/play/")
@@ -197,11 +264,11 @@ def main():
         assert driver is not None
         assert body is not None
 
-        for word in matches:
+        for word in tqdm(matches):
             try:
                 body.send_keys(word)
                 body.send_keys(Keys.RETURN)
-                time.sleep(0.0001)
+                time.sleep(0.00001)
             except:
                 _ = input("Press enter to continue")
 
@@ -211,6 +278,22 @@ def main():
                 print(f"Found {len(found)} words in wordlist.")
             except:
                 pass
+
+        print("Generating combinations based on remaining words...")
+        time.sleep(0.2)
+        ActionChains(driver).key_down(Keys.CONTROL).send_keys("-").key_up(
+            Keys.CONTROL
+        ).perform()
+        ActionChains(driver).key_down(Keys.CONTROL).send_keys("-").key_up(
+            Keys.CONTROL
+        ).perform()
+        ActionChains(driver).key_down(Keys.CONTROL).send_keys("-").key_up(
+            Keys.CONTROL
+        ).perform()
+        ActionChains(driver).key_down(Keys.CONTROL).send_keys("-").key_up(
+            Keys.CONTROL
+        ).perform()
+        time.sleep(0.2)
 
         if not hintless:
             for word in found:
@@ -247,7 +330,8 @@ if __name__ == "__main__":
     parser.add_argument("--email", type=str, nargs="?")
     parser.add_argument("--solutions", type=str)
     parser.add_argument("--maxlen", type=int, nargs="?")
-    parser.add_argument("--mode", type=str, choices=["nyt", "freebee", "file"])
+    parser.add_argument("--mode", type=str, choices=["nyt", "freebee", "file", "none"])
+    parser.add_argument("--cache_dir", type=str, nargs="?")
     args = parser.parse_args()
     letters = args.letters + args.center_letter
     if args.solutions is None and args.email is not None:
@@ -270,6 +354,17 @@ if __name__ == "__main__":
         maxlen = args.maxlen
     if args.mode == "file":
         assert (
-            args.solution is not None
+            args.solutions is not None
         ), "Must specify --solutions if running in file mode"
+
+    print(
+        f"""
+=== Starting ===
+Letters: {args.letters}[{args.center_letter}]
+Hintless: {hintless}
+Max length: {maxlen}
+Using wordlist: {args.wordlist is not None}
+Mode: {args.mode}
+"""
+    )
     main()
