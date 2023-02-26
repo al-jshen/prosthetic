@@ -62,12 +62,6 @@ def generate_combinations(l2_counts, counts):
 
 
 def generate_combinations_hintless():
-    if args.cache_dir is not None:
-        if os.path.isfile(f"{args.cache_dir}/hintless_{maxlen}.pkl"):
-            print("Found cached combinations, loading...")
-            with open(f"{args.cache_dir}/hintless_{maxlen}.pkl", "rb") as f:
-                return pickle.load(f)
-
     def make_combs(l1, maxlen, letters, center_letter):
         wds = []
 
@@ -82,14 +76,6 @@ def generate_combinations_hintless():
     )
 
     result = set(chain.from_iterable(all_words))
-
-    if args.cache_dir is not None:
-        if not os.path.isdir(args.cache_dir):
-            os.makedirs(args.cache_dir)
-        if not os.path.exists(f"{args.cache_dir}/hintless_{maxlen}.pkl"):
-            print("Caching combinations...")
-            with open(f"{args.cache_dir}/hintless_{maxlen}.pkl", "wb") as f:
-                pickle.dump(result, f)
 
     return result
 
@@ -331,7 +317,6 @@ if __name__ == "__main__":
     parser.add_argument("--solutions", type=str)
     parser.add_argument("--maxlen", type=int, nargs="?")
     parser.add_argument("--mode", type=str, choices=["nyt", "freebee", "file", "none"])
-    parser.add_argument("--cache_dir", type=str, nargs="?")
     args = parser.parse_args()
     letters = args.letters + args.center_letter
     if args.solutions is None and args.email is not None:
