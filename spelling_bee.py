@@ -205,6 +205,11 @@ def main():
     else:
         if args.mode == "nyt":
             driver = webdriver.Chrome()
+
+            print("Changing zoom level...")
+            driver.get("chrome://settings/")
+            driver.execute_script("chrome.settingsPrivate.setDefaultZoom(0.67);")
+            time.sleep(0.1)
             driver.get("https://www.nytimes.com/puzzles/spelling-bee")
             time.sleep(1)
 
@@ -213,7 +218,14 @@ def main():
             time.sleep(0.5)
 
             login(driver)
-            _ = input("Solve CAPTCHA, then press enter")
+
+            i = input(
+                "Solve CAPTCHA, then press l to log in again or enter to continue"
+            )
+
+            if i == "l":
+                login(driver)
+                _ = input("Press enter to continue")
 
             elem = driver.find_element(
                 By.XPATH, "//button[@class='pz-moment__button primary']"
@@ -279,20 +291,6 @@ def main():
                 pass
 
         print("Generating combinations based on remaining words...")
-        time.sleep(0.2)
-        ActionChains(driver).key_down(Keys.CONTROL).send_keys("-").key_up(
-            Keys.CONTROL
-        ).perform()
-        ActionChains(driver).key_down(Keys.CONTROL).send_keys("-").key_up(
-            Keys.CONTROL
-        ).perform()
-        ActionChains(driver).key_down(Keys.CONTROL).send_keys("-").key_up(
-            Keys.CONTROL
-        ).perform()
-        ActionChains(driver).key_down(Keys.CONTROL).send_keys("-").key_up(
-            Keys.CONTROL
-        ).perform()
-        time.sleep(0.2)
 
         if not hintless:
             for word in found:
