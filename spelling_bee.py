@@ -219,9 +219,14 @@ def main():
                 By.XPATH, "//button[@class='pz-moment__button primary']"
             )
             elem.click()
+            time.sleep(0.5)
 
             try:
-                driver.find_element(By.CLASS_NAME, "pz-moment__close").click()
+                driver.find_element(
+                    By.XPATH,
+                    "/html/body/div[2]/div/div[2]/div[2]/div[1]/section[3]/div/div/button",
+                ).click()
+                time.sleep(1)
             except:
                 pass
 
@@ -252,9 +257,17 @@ def main():
 
         for word in tqdm(matches):
             try:
+                try:
+                    driver.find_element(
+                        By.XPATH,
+                        "/html/body/div[2]/div/div[2]/div[2]/div[1]/section[3]/div/div/button",
+                    ).click()
+                    time.sleep(1)
+                except:
+                    pass
                 body.send_keys(word)
                 body.send_keys(Keys.RETURN)
-                time.sleep(0.00001)
+                time.sleep(0.0001)
             except:
                 _ = input("Press enter to continue")
 
@@ -293,9 +306,17 @@ def main():
 
             for word in tqdm(combinations):
                 try:
+                    try:
+                        driver.find_element(
+                            By.XPATH,
+                            "/html/body/div[2]/div/div[2]/div[2]/div[1]/section[3]/div/div/button",
+                        ).click()
+                        time.sleep(1)
+                    except:
+                        pass
                     body.send_keys(word)
                     body.send_keys(Keys.RETURN)
-                    time.sleep(0.000001)
+                    time.sleep(0.0001)
                 except:
                     a = input("Press enter to continue and q to quit")
                     if a == "q":
