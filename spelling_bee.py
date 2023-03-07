@@ -9,8 +9,6 @@ import argparse
 from tqdm.auto import tqdm
 from functools import partial
 from joblib import Parallel, delayed
-import os
-import pickle
 import time
 
 
@@ -267,28 +265,36 @@ def main():
         assert driver is not None
         assert body is not None
 
-        for word in tqdm(matches):
-            try:
+        repeat = True
+
+        while repeat:
+            for word in tqdm(matches):
                 try:
-                    driver.find_element(
-                        By.XPATH,
-                        "/html/body/div[2]/div/div[2]/div[2]/div[1]/section[3]/div/div/button",
-                    ).click()
-                    time.sleep(1)
+                    try:
+                        driver.find_element(
+                            By.XPATH,
+                            "/html/body/div[2]/div/div[2]/div[2]/div[1]/section[3]/div/div/button",
+                        ).click()
+                        time.sleep(2)
+                    except:
+                        pass
+                    body.send_keys(word)
+                    body.send_keys(Keys.RETURN)
+                except:
+                    _ = input("Press enter to continue")
+
+            if args.mode == "nyt":
+                try:
+                    found.update(get_found(driver))
+                    print(f"Found {len(found)} words in wordlist.")
                 except:
                     pass
-                body.send_keys(word)
-                body.send_keys(Keys.RETURN)
-                time.sleep(0.0001)
-            except:
-                _ = input("Press enter to continue")
 
-        if args.mode == "nyt":
-            try:
-                found.update(get_found(driver))
-                print(f"Found {len(found)} words in wordlist.")
-            except:
-                pass
+            to_repeat = input(
+                "Press r to repeat wordlist and anything else to continue"
+            )
+            if to_repeat != "r":
+                repeat = False
 
         print("Generating combinations based on remaining words...")
 
@@ -314,7 +320,7 @@ def main():
                         pass
                     body.send_keys(word)
                     body.send_keys(Keys.RETURN)
-                    time.sleep(0.0001)
+                    time.sleep(0.05)
                 except:
                     a = input("Press enter to continue and q to quit")
                     if a == "q":
