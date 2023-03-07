@@ -29,14 +29,19 @@ yolo = YOLO("yolov8n.pt", task="detect")
 
 cap = cv2.VideoCapture(1)
 
+ctr = 0
+
 while True:
     ret, frame = cap.read()
     res = yolo.predict(frame)
     res_plotted = res[0].plot()
     cv2.imshow("result", res_plotted)
     if cv2.waitKey(1) & 0xFF == ord("q"):
-        cv2.imwrite("test.png", rgb)
+        cv2.imwrite("test.png", res_plotted)
         break
+    if ctr == 0:
+        print(res)
+    ctr += 1
 
 cap.release()
 cv2.destroyAllWindows()
