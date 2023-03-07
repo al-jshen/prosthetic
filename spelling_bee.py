@@ -266,20 +266,31 @@ def main():
         assert body is not None
 
         repeat = True
+        matches = list(matches)
+        genius = False
 
         while repeat:
-            for word in tqdm(matches):
+            ctr = 0
+            while ctr < len(matches):
+                word = matches[ctr]
                 try:
                     try:
-                        driver.find_element(
-                            By.XPATH,
-                            "/html/body/div[2]/div/div[2]/div[2]/div[1]/section[3]/div/div/button",
-                        ).click()
-                        time.sleep(2)
+                        if not genius:
+                            driver.find_element(
+                                By.XPATH,
+                                "/html/body/div[2]/div/div[2]/div[2]/div[1]/section[3]/div/div/button",
+                            ).click()
+                            time.sleep(1)
+                            ctr -= 50
+                            genius = True
+                        else:
+                            _ = input("Queen bee! Press anything to continue")
+                            break
                     except:
                         pass
                     body.send_keys(word)
                     body.send_keys(Keys.RETURN)
+                    ctr += 1
                 except:
                     _ = input("Press enter to continue")
 
