@@ -31,8 +31,7 @@ cap = cv2.VideoCapture(1)
 
 while True:
     ret, frame = cap.read()
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2BGRA)
-    res = yolo.predict(rgb[:, :, :3])
+    res = yolo.predict(frame)
     res_plotted = res[0].plot()
     cv2.imshow("result", res_plotted)
     if cv2.waitKey(1) & 0xFF == ord("q"):
