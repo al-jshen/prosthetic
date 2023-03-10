@@ -161,7 +161,10 @@ def main():
         else:
             combinations = generate_combinations(l2_counts, counts)
     else:
-        combinations = generate_combinations_hintless()
+        if args.wordlist is not None:
+            combinations = wordlist
+        else:
+            combinations = generate_combinations_hintless()
 
     print("Finding matches in wordlist...")
     matches = combinations.intersection(wordlist)
@@ -202,6 +205,8 @@ def main():
 
     else:
         if args.mode == "nyt":
+            menu_ctr = 0
+
             driver = webdriver.Chrome()
 
             print("Changing zoom level...")
@@ -237,6 +242,7 @@ def main():
                     "/html/body/div[2]/div/div[2]/div[2]/div[1]/section[3]/div/div/button",
                 ).click()
                 time.sleep(1)
+                menu_ctr = 1
             except:
                 pass
 
@@ -255,6 +261,7 @@ def main():
                 pass
 
         elif args.mode == "freebee":
+            menu_ctr = None
             driver = webdriver.Chrome()
             driver.get("https://freebee.fun/play/")
 
@@ -267,30 +274,35 @@ def main():
 
         repeat = True
         matches = list(matches)
-        genius = False
 
         while repeat:
             ctr = 0
+            bar = tqdm(total=len(matches), desc="Cracking")
             while ctr < len(matches):
                 word = matches[ctr]
                 try:
                     try:
-                        if not genius:
-                            driver.find_element(
-                                By.XPATH,
-                                "/html/body/div[2]/div/div[2]/div[2]/div[1]/section[3]/div/div/button",
-                            ).click()
-                            time.sleep(1)
-                            ctr -= 50
-                            genius = True
-                        else:
-                            _ = input("Queen bee! Press anything to continue")
-                            break
+                        menu = driver.find_element(
+                            By.XPATH,
+                            "/html/body/div[2]/div/div[2]/div[2]/div[1]/section[3]/div/div/button",
+                        )
+                        if menu is not None:
+                            if menu_ctr == 0:  # genius
+                                menu.click()
+                                time.sleep(1)
+                                ctr = max(0, ctr - 100)
+                                menu = None
+                                del menu
+                                bar.update(-100)
+                            elif menu_ctr == 1:  # queen bee
+                                _ = input("Queen bee! Press anything to continue")
+                                break
                     except:
                         pass
                     body.send_keys(word)
                     body.send_keys(Keys.RETURN)
                     ctr += 1
+                    bar.update(1)
                 except:
                     _ = input("Press enter to continue")
 
