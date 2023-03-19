@@ -19,11 +19,11 @@ from ultralytics import YOLO
 #         ser.write(bytes(f"{i[0]},{j[0]}\n", "utf-8"))
 #         ser.write(bytes(f"{i[1]},{j[1]}\n", "utf-8"))
 #         ser.write(bytes(f"{i[2]},{j[2]}\n", "utf-8"))
-#         time.sleep(0.5)
+#         time.sleep(0.2)
 #         ser.write(bytes(f"{i[0]},{j[0]}\n", "utf-8"))
 #         ser.write(bytes(f"{i[1]},{j[1]}\n", "utf-8"))
 #         ser.write(bytes(f"{i[2]},{j[2]}\n", "utf-8"))
-#         time.sleep(0.1)
+#         time.sleep(0.05)
 
 yolo = YOLO("yolov8n.pt", task="detect")
 
