@@ -286,23 +286,29 @@ def main():
                             By.XPATH,
                             "/html/body/div[2]/div/div[2]/div[2]/div[1]/section[3]/div/div/button",
                         )
-                        if menu is not None:
-                            if menu_ctr == 0:  # genius
-                                menu.click()
-                                time.sleep(1)
-                                ctr = max(0, ctr - 100)
-                                menu = None
-                                del menu
-                                bar.update(-100)
-                            elif menu_ctr == 1:  # queen bee
-                                _ = input("Queen bee! Press anything to continue")
-                                break
+                        if (
+                            menu is not None
+                        ):  # this doesn't work!!! menu exists after closing genius menu
+                            if not (menu.text is None or menu.text == ""):
+                                if menu_ctr == 0:  # genius
+                                    menu.click()
+                                    print("GENIUS!")
+                                    time.sleep(1)
+                                    ctr = max(0, ctr - 100)
+                                    menu = None
+                                    del menu
+                                    bar.update(-100)
+                                    menu_ctr = 1
+                                elif menu_ctr == 1:  # queen bee
+                                    _ = input("Queen bee! Press anything to continue")
+                                    break
                     except:
                         pass
                     body.send_keys(word)
                     body.send_keys(Keys.RETURN)
                     ctr += 1
                     bar.update(1)
+                    time.sleep(0.01)
                 except:
                     _ = input("Press enter to continue")
 
