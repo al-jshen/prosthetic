@@ -1,6 +1,5 @@
 path: ./data/ims
-train: train
-val: val
+train: .
 
 # Classes
 names:
