@@ -1,31 +1,11 @@
-import serial
 import time
+import playsound
 import numpy as np
 import cv2
 from ultralytics import YOLO
+import set as st
 
-# with serial.Serial("/dev/cu.usbmodem3101", 9600, timeout=1) as ser:
-#     time.sleep(2)
-#     for i in range(100):
-#         i, j = np.random.randint(1, 4, size=(2, 3)).astype(int)
-#         print(f"{i},{j}")
-#         # check that the random number pairs are not the same
-#         if (
-#             (i[0] == i[1] and j[0] == j[1])
-#             or (i[0] == i[2] and j[0] == j[2])
-#             or (i[1] == i[2] and j[1] == j[2])
-#         ):
-#             continue
-#         ser.write(bytes(f"{i[0]},{j[0]}\n", "utf-8"))
-#         ser.write(bytes(f"{i[1]},{j[1]}\n", "utf-8"))
-#         ser.write(bytes(f"{i[2]},{j[2]}\n", "utf-8"))
-#         time.sleep(0.2)
-#         ser.write(bytes(f"{i[0]},{j[0]}\n", "utf-8"))
-#         ser.write(bytes(f"{i[1]},{j[1]}\n", "utf-8"))
-#         ser.write(bytes(f"{i[2]},{j[2]}\n", "utf-8"))
-#         time.sleep(0.05)
-
-yolo = YOLO("yolov8n.pt", task="detect")
+yolo = YOLO("yolov8m-640.onnx", task="detect")
 
 cap = cv2.VideoCapture(1)
 
@@ -33,14 +13,31 @@ ctr = 0
 
 while True:
     ret, frame = cap.read()
-    res = yolo.predict(frame)
+    res = yolo.predict(frame, imgsz=640)
     res_plotted = res[0].plot()
     cv2.imshow("result", res_plotted)
+    if cv2.waitKey(1) & 0xFF == ord("s"):
+        cv2.imwrite(f"test-{np.random.randint(10000000)}.png", res_plotted)
     if cv2.waitKey(1) & 0xFF == ord("q"):
-        cv2.imwrite("test.png", res_plotted)
         break
     if ctr == 0:
         print(res)
+    boxes = res[0].boxes.boxes
+    mask = boxes[:, 4] > 0.5
+    boxes = boxes[mask]
+    classes = boxes[:, -1]
+    cards = [st.mapping[int(c)] for c in classes]
+    print(cards)
+    sts = st.find_sets(cards)
+    if len(sts) > 0:
+        chaosflag = set([s[0] for s in sts])
+        if 1 in chaosflag:
+            playsound.playsound("set_lindsay.mp3", True)
+            playsound.playsound("chaos_lindsay.mp3", False)
+        else:
+            playsound.playsound("set_lindsay.mp3", False)
+        print(sts)
+        time.sleep(1)
     ctr += 1
 
 cap.release()

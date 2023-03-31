@@ -56,78 +56,106 @@ class Card:
 def find_sets(cards):
     sets = set()
     for c1, c2, c3 in combinations(cards, 3):
-
-        if c1.shape != c2.shape and c1.shape != c3.shape and c2.shape != c3.shape:
-            if c1.color != c2.color and c1.color != c3.color and c2.color != c3.color:
-                if (
-                    c1.number != c2.number
-                    and c1.number != c3.number
-                    and c2.number != c3.number
-                ):
-                    if c1.fill != c2.fill and c1.fill != c3.fill and c2.fill != c3.fill:
-                        sets.add((c1, c2, c3))
-
-        if c1.shape == c2.shape and c1.shape == c3.shape:
-            if c1.color != c2.color and c1.color != c3.color and c2.color != c3.color:
-                if (
-                    c1.number != c2.number
-                    and c1.number != c3.number
-                    and c2.number != c3.number
-                ):
-                    if c1.fill != c2.fill and c1.fill != c3.fill and c2.fill != c3.fill:
-                        sets.add((c1, c2, c3))
-
-        if c1.color == c2.color and c1.color == c3.color:
-            if c1.shape != c2.shape and c1.shape != c3.shape and c2.shape != c3.shape:
-                if (
-                    c1.number != c2.number
-                    and c1.number != c3.number
-                    and c2.number != c3.number
-                ):
-                    if c1.fill != c2.fill and c1.fill != c3.fill and c2.fill != c3.fill:
-                        sets.add((c1, c2, c3))
-
-        if c1.number == c2.number and c1.number == c3.number:
-            if c1.shape != c2.shape and c1.shape != c3.shape and c2.shape != c3.shape:
-                if (
-                    c1.color != c2.color
-                    and c1.color != c3.color
-                    and c2.color != c3.color
-                ):
-                    if c1.fill != c2.fill and c1.fill != c3.fill and c2.fill != c3.fill:
-                        sets.add((c1, c2, c3))
-
-        if c1.fill == c2.fill and c1.fill == c3.fill:
-            if c1.shape != c2.shape and c1.shape != c3.shape and c2.shape != c3.shape:
-                if (
-                    c1.color != c2.color
-                    and c1.color != c3.color
-                    and c2.color != c3.color
-                ):
-                    if (
-                        c1.number != c2.number
-                        and c1.number != c3.number
-                        and c2.number != c3.number
-                    ):
-                        sets.add((c1, c2, c3))
-
+        colors = {c1.color, c2.color, c3.color}
+        shapes = {c1.shape, c2.shape, c3.shape}
+        numbers = {c1.number, c2.number, c3.number}
+        fills = {c1.fill, c2.fill, c3.fill}
+        # chaos set
+        if (
+            len(colors) == 3
+            and len(shapes) == 3
+            and len(numbers) == 3
+            and len(fills) == 3
+        ):
+            sets.add((1, frozenset({c1, c2, c3})))
+        if len(colors) == 2 or len(shapes) == 2 or len(numbers) == 2 or len(fills) == 2:
+            continue
+        sets.add((0, frozenset({c1, c2, c3})))
     return sets
 
 
-s = """2 3 1 2
-3 3 3 1
-2 1 3 3
-2 3 2 1
-1 3 1 3
-2 2 1 1
-3 3 1 1
-2 1 2 3
-1 2 3 2
-2 1 3 1
-2 1 3 2
-1 2 3 3"""
+_values = [
+    Card(Shape.diamond, Color.red, Number.one, Fill.striped),
+    Card(Shape.diamond, Color.red, Number.two, Fill.striped),
+    Card(Shape.diamond, Color.red, Number.three, Fill.striped),
+    Card(Shape.oval, Color.red, Number.one, Fill.striped),
+    Card(Shape.oval, Color.red, Number.two, Fill.striped),
+    Card(Shape.oval, Color.red, Number.three, Fill.striped),
+    Card(Shape.squiggle, Color.red, Number.one, Fill.striped),
+    Card(Shape.squiggle, Color.red, Number.two, Fill.striped),
+    Card(Shape.squiggle, Color.red, Number.three, Fill.striped),
+    Card(Shape.diamond, Color.red, Number.one, Fill.solid),
+    Card(Shape.diamond, Color.red, Number.two, Fill.solid),
+    Card(Shape.diamond, Color.red, Number.three, Fill.solid),
+    Card(Shape.oval, Color.red, Number.one, Fill.solid),
+    Card(Shape.oval, Color.red, Number.two, Fill.solid),
+    Card(Shape.oval, Color.red, Number.three, Fill.solid),
+    Card(Shape.squiggle, Color.red, Number.one, Fill.solid),
+    Card(Shape.squiggle, Color.red, Number.two, Fill.solid),
+    Card(Shape.squiggle, Color.red, Number.three, Fill.solid),
+    Card(Shape.diamond, Color.purple, Number.one, Fill.empty),
+    Card(Shape.diamond, Color.purple, Number.two, Fill.empty),
+    Card(Shape.diamond, Color.purple, Number.three, Fill.empty),
+    Card(Shape.oval, Color.purple, Number.one, Fill.empty),
+    Card(Shape.oval, Color.purple, Number.two, Fill.empty),
+    Card(Shape.oval, Color.purple, Number.three, Fill.empty),
+    Card(Shape.squiggle, Color.purple, Number.one, Fill.empty),
+    Card(Shape.squiggle, Color.purple, Number.two, Fill.empty),
+    Card(Shape.squiggle, Color.purple, Number.three, Fill.empty),
+    Card(Shape.diamond, Color.purple, Number.one, Fill.striped),
+    Card(Shape.diamond, Color.purple, Number.two, Fill.striped),
+    Card(Shape.diamond, Color.purple, Number.three, Fill.striped),
+    Card(Shape.oval, Color.purple, Number.one, Fill.striped),
+    Card(Shape.oval, Color.purple, Number.two, Fill.striped),
+    Card(Shape.oval, Color.purple, Number.three, Fill.striped),
+    Card(Shape.squiggle, Color.purple, Number.one, Fill.striped),
+    Card(Shape.squiggle, Color.purple, Number.two, Fill.striped),
+    Card(Shape.squiggle, Color.purple, Number.three, Fill.striped),
+    Card(Shape.diamond, Color.purple, Number.one, Fill.solid),
+    Card(Shape.diamond, Color.purple, Number.two, Fill.solid),
+    Card(Shape.diamond, Color.purple, Number.three, Fill.solid),
+    Card(Shape.oval, Color.purple, Number.one, Fill.solid),
+    Card(Shape.oval, Color.purple, Number.two, Fill.solid),
+    Card(Shape.oval, Color.purple, Number.three, Fill.solid),
+    Card(Shape.squiggle, Color.purple, Number.one, Fill.solid),
+    Card(Shape.squiggle, Color.purple, Number.two, Fill.solid),
+    Card(Shape.squiggle, Color.purple, Number.three, Fill.solid),
+    Card(Shape.diamond, Color.green, Number.one, Fill.empty),
+    Card(Shape.diamond, Color.green, Number.two, Fill.empty),
+    Card(Shape.diamond, Color.green, Number.three, Fill.empty),
+    Card(Shape.oval, Color.green, Number.one, Fill.empty),
+    Card(Shape.oval, Color.green, Number.two, Fill.empty),
+    Card(Shape.oval, Color.green, Number.three, Fill.empty),
+    Card(Shape.squiggle, Color.green, Number.one, Fill.empty),
+    Card(Shape.squiggle, Color.green, Number.two, Fill.empty),
+    Card(Shape.squiggle, Color.green, Number.three, Fill.empty),
+    Card(Shape.diamond, Color.green, Number.one, Fill.striped),
+    Card(Shape.diamond, Color.green, Number.two, Fill.striped),
+    Card(Shape.diamond, Color.green, Number.three, Fill.striped),
+    Card(Shape.oval, Color.green, Number.one, Fill.striped),
+    Card(Shape.oval, Color.green, Number.two, Fill.striped),
+    Card(Shape.oval, Color.green, Number.three, Fill.striped),
+    Card(Shape.squiggle, Color.green, Number.one, Fill.striped),
+    Card(Shape.squiggle, Color.green, Number.two, Fill.striped),
+    Card(Shape.squiggle, Color.green, Number.three, Fill.striped),
+    Card(Shape.diamond, Color.green, Number.one, Fill.solid),
+    Card(Shape.diamond, Color.green, Number.two, Fill.solid),
+    Card(Shape.diamond, Color.green, Number.three, Fill.solid),
+    Card(Shape.oval, Color.green, Number.one, Fill.solid),
+    Card(Shape.oval, Color.green, Number.two, Fill.solid),
+    Card(Shape.oval, Color.green, Number.three, Fill.solid),
+    Card(Shape.squiggle, Color.green, Number.one, Fill.solid),
+    Card(Shape.squiggle, Color.green, Number.two, Fill.solid),
+    Card(Shape.squiggle, Color.green, Number.three, Fill.solid),
+    Card(Shape.diamond, Color.red, Number.one, Fill.empty),
+    Card(Shape.diamond, Color.red, Number.two, Fill.empty),
+    Card(Shape.diamond, Color.red, Number.three, Fill.empty),
+    Card(Shape.oval, Color.red, Number.one, Fill.empty),
+    Card(Shape.oval, Color.red, Number.two, Fill.empty),
+    Card(Shape.oval, Color.red, Number.three, Fill.empty),
+    Card(Shape.squiggle, Color.red, Number.one, Fill.empty),
+    Card(Shape.squiggle, Color.red, Number.two, Fill.empty),
+    Card(Shape.squiggle, Color.red, Number.three, Fill.empty),
+]
 
-cards = set([Card(*map(int, line.split())) for line in s.splitlines()])
-sets = find_sets(cards)
-for s in sets:
-    print(s)
+mapping = {k: v for k, v in zip(range(81), _values)}

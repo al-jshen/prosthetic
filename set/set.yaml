@@ -1,5 +1,6 @@
-path: ./data/ims
-train: .
+path: /Users/js5013/programs/prosthetic/set/datasets/set
+train: train/images
+val: valid/images
 
 # Classes
 names:
