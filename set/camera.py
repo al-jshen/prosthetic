@@ -37,7 +37,6 @@ while True:
         else:
             playsound.playsound("set_lindsay.mp3", False)
         print(sts)
-        time.sleep(1)
     ctr += 1
 
 cap.release()
