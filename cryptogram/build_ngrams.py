@@ -42,7 +42,7 @@ def build_word_ngrams(text, n):
     words = text.split(" ")
     for i in range(len(words) - n + 1):
         # the only 1-gram allowed is "a" and "i"
-        if n == 1 and words[i] not in ["a", "i"]:
+        if n == 1 and len(words[i]) == 1 and words[i][0] not in ["a", "i"]:
             continue
         ngrams[" ".join(words[i : i + n])] += 1
     return ngrams
