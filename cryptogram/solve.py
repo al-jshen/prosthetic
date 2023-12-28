@@ -6,7 +6,7 @@ import string
 import random
 from tqdm.auto import tqdm
 from joblib import Parallel, delayed
-from copy import deepcopy
+import math
 
 
 def swap_letters(translation, n_swaps=1):
@@ -20,63 +20,88 @@ def swap_letters(translation, n_swaps=1):
     return translation_new
 
 
-def build_all_ngrams(text, n_min=1, n_max=8):
-    return sum(
-        [
-            build_ngrams.build_ngrams(build_ngrams.filter_text(text), n)
-            for n in range(n_min, n_max)
-        ],
-        Counter(),
-    )
+def build_all_ngrams(text, n_max_char=5, n_max_word=3):
+    cngrams = Counter()
+    wngrams = Counter()
+    for n in range(1, n_max_char + 1):
+        cngrams.update(build_ngrams.build_character_ngrams(text, n))
+    for n in range(1, n_max_word + 1):
+        wngrams.update(build_ngrams.build_word_ngrams(text, n))
+    return cngrams, wngrams
 
 
-def score_translation(text, translation, ngrams, dictionary):
+def score_translation(text, translation, cngram_freq, wngram_freq, word_upweight=10.0):
     score = 0
     decrypted = text.translate(str.maketrans(translation))
-    decrypted_ngrams = build_all_ngrams(decrypted)
-    for ngram, count in decrypted_ngrams.items():
-        if ngram in ngrams:
-            score += count * ngrams[ngram]
+    decrypted_cngrams, decrypted_wngrams = build_all_ngrams(decrypted)
 
-    ngram_score = score
+    char_score = 0
+    word_score = 0
 
-    decrypted_words = decrypted.split()
-    for word in decrypted_words:
-        if word in dictionary:
-            score += 0.01 * len(word) * ngram_score
+    for ngram, count in decrypted_cngrams.items():
+        if ngram in cngram_freq:
+            char_score += count * cngram_freq[ngram]
+
+    for ngram, count in decrypted_wngrams.items():
+        if ngram in wngram_freq:
+            word_score += (
+                count * wngram_freq[ngram] * word_upweight * len(ngram)
+            )  # weight word ngrams more and longer words more
+
+    score = char_score + word_score
 
     return score
 
 
-def search_translations(text, translation, ngrams, dictionary, iters=100, nswaps=1):
-    score = 0
+def search_translations(
+    text,
+    translation,
+    cngram_freq,
+    wngram_freq,
+    iters=100,
+    nswaps=1,
+    temperature=1.0,
+    word_upweight=10.0,
+):
+    score = score_translation(
+        text, translation, cngram_freq, wngram_freq, word_upweight
+    )
     for _ in range(iters):
-        score = score_translation(text, translation, ngrams, dictionary)
         # test new translation
         translation_new = swap_letters(translation, nswaps)
-        score_new = score_translation(text, translation_new, ngrams, dictionary)
+        score_new = score_translation(
+            text, translation_new, cngram_freq, wngram_freq, word_upweight
+        )
         accept_ratio = score_new / score
         u = random.uniform(0, 1)
-        if u < accept_ratio:
+        # use a metropolis-hastings criterion to accept or reject the new translation
+        # include a temperature parameter to control the randomness
+        # like a simulated annealing algorithm
+        if u < accept_ratio ** (1 / temperature):
             translation = translation_new
             score = score_new
+
     return translation, score
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=str, help="Cryptogram puzzle")
-    parser.add_argument("--ngram_file", type=str, help="Ngram file")
-    parser.add_argument("--dictionary_file", type=str, help="Dictionary file")
+    parser.add_argument(
+        "--ngram_path",
+        type=str,
+        help="Directory with ngrams frequency tables",
+        default="./",
+    )
+    parser.add_argument("--word_upweight", type=float, default=10.0)
     parser.add_argument("--iters", type=int, default=10_000)
-    parser.add_argument("--sync_every", type=int, default=100)
-    parser.add_argument("--patience", type=int, default=1_000)
-    parser.add_argument("--branches", type=int, default=8)
+    parser.add_argument("--sync_every", type=int, default=10)
+    parser.add_argument("--patience", type=int, default=2_000)
+    parser.add_argument("--branches", type=int, default=2)
     args = parser.parse_args()
 
-    ngrams = joblib.load(args.ngram_file)
-    with open(args.dictionary_file) as f:
-        dictionary = set([line.rstrip() for line in f.readlines()])
+    cngram_freq = joblib.load(args.ngram_path + "cngrams.joblib")
+    wngram_freq = joblib.load(args.ngram_path + "wngrams.joblib")
 
     translation = {l: l for l in string.ascii_lowercase}
 
@@ -87,18 +112,24 @@ if __name__ == "__main__":
     best = 0
     since_improved = 0
 
+    input_text = build_ngrams.filter_text(args.input)
+
     for i in (pbar := tqdm(range(passes))):
-        # start with max of 10 swaps, then linearly decrease to 1
-        nswaps = max(1, 10 - i * 9 // passes)
+        # start with max of 5 swaps, then decrease linearly to 1
+        nswaps = int(max(1, 5 - i / passes))
+        # start with high temperature, then do a cosine annealing schedule
+        temperature = 30 * math.cos(math.pi / 2 * i / passes)
         translations, scores = zip(
             *Parallel(n_jobs=args.branches)(
                 delayed(search_translations)(
-                    args.input.lower(),
+                    input_text,
                     translation,
-                    ngrams,
-                    dictionary,
+                    cngram_freq,
+                    wngram_freq,
                     iters=args.sync_every,
                     nswaps=nswaps,
+                    temperature=temperature,
+                    word_upweight=args.word_upweight,
                 )
                 for _ in range(args.branches)
             )
