@@ -119,9 +119,7 @@ def get_found(driver):
 
 
 def login(driver):
-    email = driver.find_element(
-        By.XPATH, "/html/body/div/div/div/div/form/div/div[2]/fieldset/div/div/input"
-    )
+    email = driver.find_element(By.XPATH, "/html/body/header/div[1]/div[2]/a[4]")
     email.send_keys(args.email)
     email.submit()
     time.sleep(0.5)
@@ -174,6 +172,7 @@ def main():
     print(f"Found in wordlist: {len(matches)}")
 
     if args.mode == "none":
+        print(matches)
         return
 
     elif args.mode == "file":
@@ -216,9 +215,12 @@ def main():
             driver.get("https://www.nytimes.com/puzzles/spelling-bee")
             time.sleep(1)
 
-            elem = driver.find_element(By.XPATH, "/html/body/header/div[1]/div[2]/a[2]")
+            elem = driver.find_element(
+                By.XPATH,
+                "/html/body/div[2]/div[2]/div[2]/div[1]/section[2]/div/div/div/div[2]/div/button",
+            )
             elem.click()
-            time.sleep(0.5)
+            time.sleep(2.0)
 
             login(driver)
 
