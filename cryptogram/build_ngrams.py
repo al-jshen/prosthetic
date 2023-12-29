@@ -41,11 +41,22 @@ def build_word_ngrams(text, n):
     ngrams = Counter()
     words = text.split(" ")
     for i in range(len(words) - n + 1):
-        # the only 1-gram allowed is "a" and "i"
+        # the only length-1 1-grams allowed are "a" and "i"
         if n == 1 and len(words[i]) == 1 and words[i][0] not in ["a", "i"]:
             continue
         ngrams[" ".join(words[i : i + n])] += 1
     return ngrams
+
+
+def build_words(text, dictionary):
+    word_freqs = Counter()
+    words = text.split(" ")
+    for word in words:
+        if word in dictionary:
+            if len(word) == 1 and word not in ["a", "i"]:
+                continue
+            word_freqs[word] += 1
+    return word_freqs
 
 
 def filter_text(text, filter_words=[]):
@@ -60,17 +71,24 @@ def filter_text(text, filter_words=[]):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--corpora_dir", type=str, default="../corpora")
+    parser.add_argument("--dictionary_file", type=str)
     parser.add_argument("--n_max_char", type=int, default=5)
     parser.add_argument("--n_max_word", type=int, default=2)
     parser.add_argument("--chunks", type=int, default=100)
     parser.add_argument("--n_jobs", type=int, default=-1)
-    parser.add_argument("--keep_top", type=int, default=1_000)
+    parser.add_argument("--keep_top_cngrams", type=int, default=1_000)
+    parser.add_argument("--keep_top_wngrams", type=int, default=1_000)
+    parser.add_argument("--keep_top_words", type=int, default=10_000)
     parser.add_argument("--save_dir", type=str, default="./")
     parser.add_argument("--filter_words_file", type=str, default="./filter_words.txt")
     args = parser.parse_args()
     full_text = build_text(args.corpora_dir).lower()
     with open(args.filter_words_file, "r") as file:
-        filter_words = [l.rstrip() for l in file]
+        filter_words = set([l.rstrip() for l in file])
+
+    with open(args.dictionary_file, "r") as file:
+        dictionary = set([l.rstrip() for l in file])
+
     # split full text into 100 chunks
     len_text = len(full_text)
     len_chunks = len_text // 100
@@ -84,6 +102,7 @@ if __name__ == "__main__":
 
     cngrams = Counter()
     wngrams = Counter()
+    wgrams = Counter()
 
     # build character level ngrams
     for n in range(1, args.n_max_char + 1):
@@ -123,8 +142,26 @@ if __name__ == "__main__":
 
         wngrams.update(ngrams)
 
-    top_cngrams = cngrams.most_common(args.keep_top)
-    top_wngrams = wngrams.most_common(args.keep_top)
+    # build words
+    partial_freqs = []
+    partial_freqs += Parallel(n_jobs=args.n_jobs)(
+        delayed(build_words)(chunk, dictionary)
+        for chunk in tqdm(filtered_text, desc="Building words")
+    )
+
+    word_freqs = partial_freqs[0]
+    for pf in partial_freqs[1:]:
+        word_freqs.update(pf)
+
+    # normalize ngrams
+    total_words = sum(word_freqs.values())
+    for w in word_freqs:
+        word_freqs[w] /= total_words
+
+    top_cngrams = cngrams.most_common(args.keep_top_cngrams)
+    top_wngrams = wngrams.most_common(args.keep_top_wngrams)
+    top_words = word_freqs.most_common(args.keep_top_words)
 
     joblib.dump(dict(top_cngrams), args.save_dir + "cngrams.joblib")
     joblib.dump(dict(top_wngrams), args.save_dir + "wngrams.joblib")
+    joblib.dump(dict(top_words), args.save_dir + "words.joblib")

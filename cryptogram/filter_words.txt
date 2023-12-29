@@ -39,5 +39,5 @@ basefont
 bdo
 blockquote
 br
-
-
+class
+text

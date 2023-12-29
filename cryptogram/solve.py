@@ -1,34 +1,34 @@
 import argparse
 import joblib
-from collections import Counter
 import build_ngrams
 from score import score_translation
 import string
 import random
 from tqdm.auto import tqdm
-from joblib import Parallel, delayed
 import math
 
 
-def swap_letters(translation, n_swaps=1):
-    translation_new = translation.copy()
-    for _ in range(n_swaps):
-        r1, r2 = random.sample(string.ascii_lowercase, 2)
-        translation_new[r1], translation_new[r2] = (
-            translation_new[r2],
-            translation_new[r1],
+def swap_letters(existing, n=1, fixed={}):
+    letters = string.ascii_lowercase
+
+    values = [existing[l] for l in letters]
+
+    fixed_indices = []
+
+    if len(fixed) > 0:
+        for k, v in fixed.items():
+            index = ord(k) - ord("a")
+            fixed_indices.append(index)
+            values.remove(v)
+            values.insert(index, v)
+
+    for _ in range(n):
+        i, j = random.sample(
+            [x for x in range(len(letters)) if x not in fixed_indices], 2
         )
-    return translation_new
+        values[i], values[j] = values[j], values[i]
 
-
-def build_all_ngrams(text, n_max_char=5, n_max_word=3):
-    cngrams = Counter()
-    wngrams = Counter()
-    for n in range(1, n_max_char + 1):
-        cngrams.update(build_ngrams.build_character_ngrams(text, n))
-    for n in range(1, n_max_word + 1):
-        wngrams.update(build_ngrams.build_word_ngrams(text, n))
-    return cngrams, wngrams
+    return dict(zip(letters, values))
 
 
 def search_translations(
@@ -36,54 +36,110 @@ def search_translations(
     translation,
     cngram_freq,
     wngram_freq,
+    word_freq,
     dictionary,
     iters=10_000,
-    nswaps=1,
+    swap_schedule=lambda i, t: 1,
     temperature_schedule=lambda i, t: 1.0,
-    word_ngram_upweight=2.0,
-    word_upweight=5.0,
+    char_ngram_upweight_schedule=lambda i, t: 1.0,
+    word_ngram_upweight_schedule=lambda i, t: 2.0,
+    word_upweight_schedule=lambda i, t: 2.0,
+    freq_smoothing=1e-5,
+    word_freq_smoothing=1e-6,
+    fixed=[],
 ):
+    top_5_scores = []
+    top_5_translations = []
+
     score = score_translation(
         text,
         translation,
         cngram_freq,
         wngram_freq,
+        word_freq,
         dictionary,
         verbose=False,
-        word_ngram_weight=word_ngram_upweight,
-        word_weight=word_upweight,
+        char_ngram_weight=char_ngram_upweight_schedule(0, iters),
+        word_ngram_weight=word_ngram_upweight_schedule(0, iters),
+        word_weight=word_upweight_schedule(0, iters),
+        freq_smoothing=freq_smoothing,
+        word_freq_smoothing=word_freq_smoothing,
+    )
+    logging = dict(
+        score=[score],
+        temperature=[temperature_schedule(0, iters)],
+        char_ngram_upweight=[char_ngram_upweight_schedule(0, iters)],
+        word_ngram_upweight=[word_ngram_upweight_schedule(0, iters)],
+        word_upweight=[word_upweight_schedule(0, iters)],
     )
     pbar_every = iters // 100
     for i in (pbar := tqdm(range(iters))):
         # test new translation
-        translation_new = swap_letters(translation, nswaps)
+        translation_new = swap_letters(translation, swap_schedule(i, iters), fixed)
         score_new = score_translation(
             text,
             translation_new,
             cngram_freq,
             wngram_freq,
+            word_freq,
             dictionary,
             verbose=False,
-            word_ngram_weight=word_ngram_upweight,
-            word_weight=word_upweight,
+            char_ngram_weight=char_ngram_upweight_schedule(i, iters),
+            word_ngram_weight=word_ngram_upweight_schedule(i, iters),
+            word_weight=word_upweight_schedule(i, iters),
+            freq_smoothing=freq_smoothing,
+            word_freq_smoothing=word_freq_smoothing,
         )
 
-        # simulated annealing
-        accept_ratio = score_new / score
-        u = random.uniform(0, 1)
-        if u < accept_ratio ** (1 / temperature_schedule(i, iters)):
-            translation = translation_new
-            score = score_new
+        try:
+            # simulated annealing
+            accept_ratio = math.log(score_new / score)
+            u = random.uniform(0, 1)
+            if u < math.exp(accept_ratio / temperature_schedule(i, iters)):
+                translation = translation_new
+                score = score_new
 
-        # # greedy
-        # if score_new > score:
-        #     translation = translation_new
-        #     score = score_new
+                # add score to top 5 scores if it's better than the worst score in the top 5
+                # and remove the worst score
+                if len(top_5_scores) < 5:
+                    top_5_scores.append(score)
+                    top_5_translations.append(translation)
+                else:
+                    if score > min(top_5_scores):
+                        if score not in top_5_scores:
+                            min_index = top_5_scores.index(min(top_5_scores))
+                            top_5_scores[min_index] = score
+                            top_5_translations[min_index] = translation
+        except:
+            # greedy
+            if score_new > score:
+                translation = translation_new
+                score = score_new
+
+                if len(top_5_scores) < 5:
+                    top_5_scores.append(score)
+                    top_5_translations.append(translation)
+                else:
+                    if score > min(top_5_scores):
+                        if score not in top_5_scores:
+                            min_index = top_5_scores.index(min(top_5_scores))
+                            top_5_scores[min_index] = score
+                            top_5_translations[min_index] = translation
+
+        logging["score"].append(score)
+        logging["temperature"].append(temperature_schedule(i, iters))
+        logging["char_ngram_upweight"].append(char_ngram_upweight_schedule(i, iters))
+        logging["word_ngram_upweight"].append(word_ngram_upweight_schedule(i, iters))
+        logging["word_upweight"].append(word_upweight_schedule(i, iters))
 
         if i % pbar_every == 0:
             pbar.set_description(f"Score: {score}")
 
-    return translation, score
+    return translation, score, logging, top_5_scores, top_5_translations
+
+
+def pair(arg):
+    return arg.split(",")
 
 
 if __name__ == "__main__":
@@ -96,16 +152,29 @@ if __name__ == "__main__":
         default="./",
     )
     parser.add_argument("--dictionary", type=str, help="Dictionary file")
+    parser.add_argument("--max_char_ngram", type=int, default=3)
+    parser.add_argument("--char_ngram_upweight", type=float, default=1.0)
     parser.add_argument("--word_ngram_upweight", type=float, default=2.0)
     parser.add_argument("--word_upweight", type=float, default=5.0)
     parser.add_argument("--iters", type=int, default=20_000)
     parser.add_argument("--max_temp", type=float, default=10.0)
+    parser.add_argument("--min_temp", type=float, default=0.01)
     parser.add_argument("--restarts", type=int, default=10)
     parser.add_argument("--aggression", type=int, default=15)
+    parser.add_argument("--fixed", type=pair, nargs="+", default=[])
+    parser.add_argument("--freq_smoothing", type=float, default=1e-6)
+    parser.add_argument("--word_freq_smoothing", type=float, default=1e-6)
+    parser.add_argument("--plot", action="store_true", default=False)
     args = parser.parse_args()
 
     cngram_freq = joblib.load(args.ngram_path + "cngrams.joblib")
     wngram_freq = joblib.load(args.ngram_path + "wngrams.joblib")
+    word_freq = joblib.load(args.ngram_path + "words.joblib")
+
+    cngram_freq = {
+        k: v for k, v in cngram_freq.items() if len(k) <= args.max_char_ngram
+    }
+
     with open(args.dictionary) as f:
         dictionary = set([l.strip() for l in f])
 
@@ -113,24 +182,42 @@ if __name__ == "__main__":
 
     input_text = build_ngrams.filter_text(args.input)
 
-    translation, score = search_translations(
+    fixed = {k: v for k, v in args.fixed}
+
+    translation, score, logging, top_5_scores, top_5_translations = search_translations(
         input_text,
         translation,
         cngram_freq,
         wngram_freq,
+        word_freq,
         dictionary,
         iters=args.iters,
-        nswaps=2,
+        # swap_schedule=lambda i, t: math.ceil(3 - (i / t) * 3),
+        swap_schedule=lambda i, t: 1,
         temperature_schedule=lambda i, t: 1
         / (i / (t / args.restarts) + 1)
+        / (5 ** (i / (t / args.restarts)))
         * args.max_temp
-        * (((i % (t / args.restarts)) / t) + 1) ** (-args.aggression),
+        * (((i % (t / args.restarts)) / t) + 1) ** (-args.aggression)
+        + args.min_temp,
         # temperature_schedule=lambda i, t: math.cos(100 * math.pi * i / t) ** 2 + 0.01,
-        word_ngram_upweight=args.word_ngram_upweight,
-        word_upweight=args.word_upweight,
+        char_ngram_upweight_schedule=lambda i, t: args.char_ngram_upweight,
+        word_ngram_upweight_schedule=lambda i, t: 0
+        if i < t / 5
+        else i / t * args.word_ngram_upweight
+        if i < 0.6 * t
+        else args.word_ngram_upweight,
+        word_upweight_schedule=lambda i, t: 0
+        if i < t / 5
+        else i / t * args.word_upweight
+        if i < 0.6 * t
+        else args.word_upweight,
+        freq_smoothing=args.freq_smoothing,
+        word_freq_smoothing=args.word_freq_smoothing,
+        fixed=fixed,
     )
 
-    print(translation)
+    # print(translation)
 
     print(
         score_translation(
@@ -138,10 +225,29 @@ if __name__ == "__main__":
             translation,
             cngram_freq,
             wngram_freq,
+            word_freq,
             dictionary,
             verbose=True,
+            char_ngram_weight=args.char_ngram_upweight,
             word_ngram_weight=args.word_ngram_upweight,
             word_weight=args.word_upweight,
+            freq_smoothing=args.freq_smoothing,
+            word_freq_smoothing=args.word_freq_smoothing,
         )
     )
-    print(input_text.translate(str.maketrans(translation)))
+
+    print(top_5_scores)
+
+    for t in top_5_translations:
+        print(args.input.lower().translate(str.maketrans(t)))
+
+    if args.plot:
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots(5, 1)
+        ax[0].plot(logging["score"])
+        ax[1].plot(logging["temperature"])
+        ax[2].plot(logging["char_ngram_upweight"])
+        ax[3].plot(logging["word_ngram_upweight"])
+        ax[4].plot(logging["word_upweight"])
+        plt.show()
