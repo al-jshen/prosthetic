@@ -6,6 +6,8 @@ import string
 import random
 from tqdm.auto import tqdm
 import math
+import toml
+import munch
 
 
 def swap_letters(existing, n=1, fixed={}):
@@ -144,28 +146,9 @@ def pair(arg):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", type=str, help="Cryptogram puzzle")
-    parser.add_argument(
-        "--ngram_path",
-        type=str,
-        help="Directory with ngrams frequency tables",
-        default="./",
-    )
-    parser.add_argument("--dictionary", type=str, help="Dictionary file")
-    parser.add_argument("--max_char_ngram", type=int, default=3)
-    parser.add_argument("--char_ngram_upweight", type=float, default=1.0)
-    parser.add_argument("--word_ngram_upweight", type=float, default=2.0)
-    parser.add_argument("--word_upweight", type=float, default=5.0)
-    parser.add_argument("--iters", type=int, default=20_000)
-    parser.add_argument("--max_temp", type=float, default=10.0)
-    parser.add_argument("--min_temp", type=float, default=0.01)
-    parser.add_argument("--restarts", type=int, default=10)
-    parser.add_argument("--aggression", type=int, default=15)
-    parser.add_argument("--fixed", type=pair, nargs="+", default=[])
-    parser.add_argument("--freq_smoothing", type=float, default=1e-6)
-    parser.add_argument("--word_freq_smoothing", type=float, default=1e-6)
-    parser.add_argument("--plot", action="store_true", default=False)
-    args = parser.parse_args()
+    parser.add_argument("--config", type=str, help="Configuration file")
+    parsed_args = parser.parse_args()
+    args = munch.munchify(toml.load(parsed_args.config))
 
     cngram_freq = joblib.load(args.ngram_path + "cngrams.joblib")
     wngram_freq = joblib.load(args.ngram_path + "wngrams.joblib")
@@ -182,7 +165,10 @@ if __name__ == "__main__":
 
     input_text = build_ngrams.filter_text(args.input)
 
-    fixed = {k: v for k, v in args.fixed}
+    if len(args.fixed) > 0:
+        fixed = {k: v for k, v in map(lambda x: x.split(","), args.fixed.split(" "))}
+    else:
+        fixed = {}
 
     translation, score, logging, top_5_scores, top_5_translations = search_translations(
         input_text,

@@ -1,0 +1,16 @@
+input = "vplgs ubl, owbruslq eo qks alptswvs, pv retswlsm fz qks vbus ybhv qkbq nwsvpms etsw qks ksbtslv, pq pv fz le usblv bfvawm qe vsbwgk qksws bfets oew qks qksusv eo eaw yptsv, oew qkevs owprpm vzunbqkpsv qkbq nbwqpgpnbqs pl eaw bgkpstsuslqv bv hsyy bv eaw fyalmswplrv. - ubwraswpqs zeawgslbw"
+ngram_path = "./" 
+dictionary = "../wordlists/words_alpha.txt"
+iters = 20_000 
+aggression = 35
+max_temp = 3 
+min_temp = 5e-6
+restarts = 1 
+char_ngram_upweight = 0.01
+word_ngram_upweight = 0.01
+word_upweight = 0.1
+max_char_ngram = 3
+fixed = "a,u l,n p,i t,v s,e w,r v,s r,g e,o m,d f,b z,y"
+freq_smoothing = 1e-1
+word_freq_smoothing = 1e-2
+plot = false
