@@ -49,6 +49,7 @@ def search_translations(
     freq_smoothing=1e-5,
     word_freq_smoothing=1e-6,
     fixed=[],
+    keep_top=5,
 ):
     top_5_scores = []
     top_5_translations = []
@@ -103,7 +104,7 @@ def search_translations(
 
                 # add score to top 5 scores if it's better than the worst score in the top 5
                 # and remove the worst score
-                if len(top_5_scores) < 5:
+                if len(top_5_scores) < keep_top:
                     top_5_scores.append(score)
                     top_5_translations.append(translation)
                 else:
@@ -118,7 +119,7 @@ def search_translations(
                 translation = translation_new
                 score = score_new
 
-                if len(top_5_scores) < 5:
+                if len(top_5_scores) < keep_top:
                     top_5_scores.append(score)
                     top_5_translations.append(translation)
                 else:
@@ -201,28 +202,28 @@ if __name__ == "__main__":
         freq_smoothing=args.freq_smoothing,
         word_freq_smoothing=args.word_freq_smoothing,
         fixed=fixed,
+        keep_top=args.keep_top,
     )
 
-    # print(translation)
-
-    print(
-        score_translation(
-            input_text,
-            translation,
-            cngram_freq,
-            wngram_freq,
-            word_freq,
-            dictionary,
-            verbose=True,
-            char_ngram_weight=args.char_ngram_upweight,
-            word_ngram_weight=args.word_ngram_upweight,
-            word_weight=args.word_upweight,
-            freq_smoothing=args.freq_smoothing,
-            word_freq_smoothing=args.word_freq_smoothing,
+    if args.verbose:
+        print(
+            score_translation(
+                input_text,
+                translation,
+                cngram_freq,
+                wngram_freq,
+                word_freq,
+                dictionary,
+                verbose=True,
+                char_ngram_weight=args.char_ngram_upweight,
+                word_ngram_weight=args.word_ngram_upweight,
+                word_weight=args.word_upweight,
+                freq_smoothing=args.freq_smoothing,
+                word_freq_smoothing=args.word_freq_smoothing,
+            )
         )
-    )
 
-    print(top_5_scores)
+        print(top_5_scores)
 
     for t in top_5_translations:
         print(args.input.lower().translate(str.maketrans(t)))
